@@ -23,6 +23,8 @@
 int addr = 0;
 #include <IRremote.h>
 
+#include "UniversalIR.h"
+
 int RECV_PIN = A5;
 int BUTTON_PIN = 9;
 int STATUS_PIN = 13;
@@ -54,6 +56,7 @@ void buzz(int targetPin, long frequency, long length) {
 
 void setup()
 {
+  
     //EEPROM.write(addr, val);
   Serial.begin(9600);
   buzz(SPEAKER_PIN, 2000, 500);
@@ -75,13 +78,14 @@ unsigned int rawCodes[RAWBUF]; // The durations if raw
 int codeLen; // The length of the code
 int toggle = 0; // The RC5/6 toggle state
 
+
 // Stores the code for later playback
 // Most of this code is just logging
 void storeCode(decode_results *results) {
   codeType = results->decode_type;
   int count = results->rawlen;
-  if (codeType == UNKNOWN) {
-    Serial.println("Received unknown code, saving as raw");
+ // if (codeType == UNKNOWN) {
+    Serial.println("Received code, saving ");
     codeLen = results->rawlen - 1;
     // To store raw codes:
     // Drop first value (gap)
@@ -101,101 +105,15 @@ void storeCode(decode_results *results) {
       Serial.print(rawCodes[i - 1], DEC);
     }
     Serial.println("");
-  }
-  else {
-    if (codeType == NEC) {
-      Serial.print("Received NEC: ");
-      if (results->value == REPEAT) {
-        // Don't record a NEC repeat value as that's useless.
-        Serial.println("repeat; ignoring.");
-        return;
-      }
-    } 
-    else if (codeType == SONY) {
-      Serial.print("Received SONY: ");
-    } 
-    else if (codeType == PANASONIC) {
-      Serial.print("Received PANASONIC: ");
-    }
-    else if (codeType == JVC) {
-      Serial.print("Received JVC: ");
-    }
-    else if (codeType == RC5) {
-      Serial.print("Received RC5: ");
-    } 
-    else if (codeType == RC6) {
-      Serial.print("Received RC6: ");
-    }    
-    else if (codeType == SAMSUNG) {
-      Serial.print("Received SAMSUNG: ");
-    } 
-    else {
-      Serial.print("Unexpected codeType ");
-      Serial.print(codeType, DEC);
-      Serial.println("");
-    }
-    Serial.println(results->value, HEX);
-    codeValue = results->value;
-    codeLen = results->bits;
-  }
+
 }
 
-void sendCode(int repeat) {
-  if (codeType == NEC) {
-    if (repeat) {
-      irsend.sendNEC(REPEAT, codeLen);
-      Serial.println("Sent NEC repeat");
-    } 
-    else {
-      irsend.sendNEC(codeValue, codeLen);
-      Serial.print("Sent NEC ");
-      Serial.println(codeValue, HEX);
-    }
-  } 
-  else if (codeType == SONY) {
-    irsend.sendSony(codeValue, codeLen);
-    Serial.print("Sent Sony ");
-    Serial.println(codeValue, HEX);
-  } 
-  else if (codeType == PANASONIC) {
-    irsend.sendPanasonic(codeValue, codeLen);
-    Serial.print("Sent Panasonic ");
-    Serial.println(codeValue, HEX);
-  }
-  else if (codeType == SAMSUNG) {
-    irsend.sendSAMSUNG(codeValue, codeLen);
-    Serial.print("Sent Samsung ");
-    Serial.println(codeValue, HEX);
-  }
-  else if (codeType == JVC) {
-    irsend.sendPanasonic(codeValue, codeLen);
-    Serial.print("Sent JVC");
-    Serial.println(codeValue, HEX);
-  }
-  else if (codeType == RC5 || codeType == RC6) {
-    if (!repeat) {
-      // Flip the toggle bit for a new button press
-      toggle = 1 - toggle;
-    }
-    // Put the toggle bit into the code to send
-    codeValue = codeValue & ~(1 << (codeLen - 1));
-    codeValue = codeValue | (toggle << (codeLen - 1));
-    if (codeType == RC5) {
-      Serial.print("Sent RC5 ");
-      Serial.println(codeValue, HEX);
-      irsend.sendRC5(codeValue, codeLen);
-    } 
-    else {
-      irsend.sendRC6(codeValue, codeLen);
-      Serial.print("Sent RC6 ");
-      Serial.println(codeValue, HEX);
-    }
-  } 
-  else if (codeType == UNKNOWN /* i.e. raw */) {
+void sendCode() {
+
     // Assume 38 KHz
     irsend.sendRaw(rawCodes, codeLen, 38);
     Serial.println("Sent raw");
-  }
+
 }
 
 int lastButtonState;

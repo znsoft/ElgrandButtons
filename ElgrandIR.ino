@@ -48,18 +48,18 @@ void setup()
 }
 
 // Storage for the recorded code
-int codeType = -1; // The type of code
-unsigned long codeValue; // The code value if not raw
+//int codeType = -1; // The type of code
+//unsigned long codeValue; // The code value if not raw
 unsigned int rawCodes[RAWBUF]; // The durations if raw
 int codeLen; // The length of the code
-int toggle = 0; // The RC5/6 toggle state
+//int toggle = 0; // The RC5/6 toggle state
 
 
 // Stores the code for later playback
 // Most of this code is just logging
 void storeCode(decode_results *results) {
-  codeType = results->decode_type;
-  int count = results->rawlen;
+  //codeType = results->decode_type;
+  //int count = results->rawlen;
   // if (codeType == UNKNOWN) {
   Serial.println("Received code, saving ");
   codeLen = results->rawlen - 1;

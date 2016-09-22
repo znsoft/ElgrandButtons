@@ -1,6 +1,8 @@
 
 #include <EEPROM.h>
 
+#include <Vector.h>
+
 enum MyMode {
   Config,
   Play
@@ -9,12 +11,12 @@ enum MyMode {
 
 
 struct FAT {
-  int code1;
-  int code2;
-  int code3;
-  int code4;
-  int code5;
-  int endof;
+  int code1, pin1;
+  int code2, pin2;
+  int code3, pin3;
+  int code4, pin4;
+  int code5, pin5;
+  int endof, nopin;
 };
 
 class MyMenu {
@@ -22,10 +24,13 @@ class MyMenu {
     FAT myFat;
     int speakerpin;
     MyMode myMode;
+    int excludePins[];
+
+
 
     //Buzzer
     void buzz( long frequency, long length) {
-      digitalWrite(3, HIGH);
+      //      digitalWrite(3, HIGH);
       long delayValue = 1000000 / frequency / 2; // calculate the delay value between transitions
       //// 1 second's worth of microseconds, divided by the frequency, then split in half since
       //// there are two phases to each cycle
@@ -38,24 +43,46 @@ class MyMenu {
         digitalWrite(speakerpin, LOW); // write the buzzer pin low to pull back the diaphram
         delayMicroseconds(delayValue); // wait again or the calculated delay value
       }
-      digitalWrite(3, LOW);
-      //EEPROM.write(addr, val);
+      //      digitalWrite(3, LOW);
     }
+
+
+
     //Constructor
     MyMenu(int speaker) {
+      speakerpin = speaker;
+      InitAllPinsIn();
       myMode = Play;
       ReadMyEEPROM();
       if (IsMyEEPROMEmpty())
         myMode = Config;
+        
+    }
+
+void InitAllPinsIn(){
+  for(int i = 0;i<24;i++){
+    bool isExclude = false;
+    for(int e = 0;sizeof(excludePins)/4;e++)
+      isExclude = isExclude || (e == i);
+      if(isExclude)continue;
+      pinMode(i, INPUT);
+      digitalWrite(i, HIGH);}
+  }
 
 
+int WhatButtonIsClicked(){
+  
+  
+  
+  }
 
-      speakerpin = speaker;
-      buzz( 2000, 500);
+
+void melody1(){
+        buzz( 2000, 500);
       buzz( 1000, 500);
       buzz( 1500, 500);
       buzz( 3000, 500);
-    }
+  }
 
     void ReadMyEEPROM() {
 

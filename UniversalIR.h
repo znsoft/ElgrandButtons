@@ -1,7 +1,14 @@
 
 #include <EEPROM.h>
 
-#include <Vector.h>
+// bad
+#define ARRAY_SIZE(array) (sizeof((array))/sizeof((array[0])))
+
+// good
+template <unsigned S> inline unsigned arraysize(int (&v)[S]) {
+  return S;
+}
+
 
 enum MyMode {
   Config,
@@ -20,17 +27,19 @@ struct FAT {
 };
 
 class MyMenu {
+  private:
+    int allButtons[25];
+
   public:
     FAT myFat;
     int speakerpin;
     MyMode myMode;
-    int excludePins[];
+    int *excludePins;
 
 
 
     //Buzzer
     void buzz( long frequency, long length) {
-      //      digitalWrite(3, HIGH);
       long delayValue = 1000000 / frequency / 2; // calculate the delay value between transitions
       //// 1 second's worth of microseconds, divided by the frequency, then split in half since
       //// there are two phases to each cycle
@@ -43,46 +52,62 @@ class MyMenu {
         digitalWrite(speakerpin, LOW); // write the buzzer pin low to pull back the diaphram
         delayMicroseconds(delayValue); // wait again or the calculated delay value
       }
-      //      digitalWrite(3, LOW);
     }
 
 
 
     //Constructor
-    MyMenu(int speaker) {
+    template <unsigned S>
+    MyMenu(int speaker, int (&excludeP)[S]) {
       speakerpin = speaker;
-      InitAllPinsIn();
+      InitAllPinsIn(excludeP);
       myMode = Play;
       ReadMyEEPROM();
       if (IsMyEEPROMEmpty())
-        myMode = Config;
+        {
+          myMode = Config;
+        int *A = GetAllButtons(excludeP);
+         for (int e = 0; e < arraysize(A)); e++)
         
+        
+        }
+      
+      excludePins = new int[S];
+      //memcpy(
+
     }
 
-void InitAllPinsIn(){
-  for(int i = 0;i<24;i++){
-    bool isExclude = false;
-    for(int e = 0;sizeof(excludePins)/4;e++)
-      isExclude = isExclude || (e == i);
-      if(isExclude)continue;
-      pinMode(i, INPUT);
-      digitalWrite(i, HIGH);}
+    template <unsigned S>
+    void InitAllPinsIn(int (&excludeP)[S]) {
+      for (int i = 0; i < 24; i++) {
+        bool isExclude = false;
+        for (int e = 0; e < S; e++)
+          isExclude = isExclude || (excludeP[e] == i);
+        if (isExclude)continue;
+        pinMode(i, INPUT);
+        digitalWrite(i, HIGH);
+      }
+    }
+
+    template <unsigned S>
+    int *GetAllButtons(int (&excludeP)[S]) {
+      for (int i = 0; i < 24; i++) {
+        bool isExclude = false;
+        for (int e = 0; e < S); e++)
+        isExclude = isExclude || (excludeP[e] == i);
+        if (isExclude)continue;
+        allButtons[i] = digitalRead(i);
+      }
+    return allButtons;
   }
 
 
-int WhatButtonIsClicked(){
-  
-  
-  
-  }
-
-
-void melody1(){
-        buzz( 2000, 500);
+  void melody1() {
+      buzz( 2000, 500);
       buzz( 1000, 500);
       buzz( 1500, 500);
       buzz( 3000, 500);
-  }
+    }
 
     void ReadMyEEPROM() {
 

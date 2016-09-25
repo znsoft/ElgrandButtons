@@ -17,26 +17,12 @@ enum MyMode {
 };
 
 
-struct FAT {
-  int code1, pin1;
-  int code2, pin2;
-  int code3, pin3;
-  int code4, pin4;
-  int code5, pin5;
-  int endof, nopin;
-};
-
 class MyMenu {
   private:
-    int allButtons[25];
-
-  public:
-    FAT myFat;
+    int usePins[];
     int speakerpin;
     MyMode myMode;
-    int *excludePins;
-
-
+    int myFat[];
 
     //Buzzer
     void buzz( long frequency, long length) {
@@ -54,55 +40,57 @@ class MyMenu {
       }
     }
 
+    template <unsigned S>
+    void InitAllPinsIn(int (&P)[S]) {
+      for (int i = 0; i < S; i++) {
+        pinMode(P[i], INPUT);
+        digitalWrite(P[i], HIGH);
+      }
+    }
 
+    template <unsigned S>
+    int GetAllButtons(int (&P)[S]) {
+      int ret = 0, bit1 = 1;
+      for (int i = 0; i < S; i++) {
+        ret = ret | (bit1 & !digitalRead(P[i]));
+        bit1 = bit1 << 1;
+      }
+      return ret;
+    }
+
+  public:
 
     //Constructor
     template <unsigned S>
-    MyMenu(int speaker, int (&excludeP)[S]) {
+    MyMenu(int speaker, int (&P)[S]) {
       speakerpin = speaker;
-      InitAllPinsIn(excludeP);
+      myFat = new int[S];
+      InitAllPinsIn(P);
       myMode = Play;
       ReadMyEEPROM();
-      if (IsMyEEPROMEmpty())
-        {
-          myMode = Config;
-        int *A = GetAllButtons(excludeP);
-         for (int e = 0; e < arraysize(A)); e++)
-        
-        
+      if (IsMyEEPROMEmpty(S))
+        myMode = Config;
+      usePins = P;
+    }
+
+
+    ;
+
+    template <unsigned S>
+    void ProcessPlayButtons(int (&P)[S], void (*MyCallbackSendIR)(unsigned int *sendcode,unsigned int len)) {
+      for (int i = 0; i < S; i++)
+        if (!digitalRead(P[i])) {
+          unsigned int adr = i == 0 ? sizeof(myFat) : myFat[i - 1];
+          unsigned int len = myFat[i] - adr;
+          int *code = new unsigned int[len];
+          EEPROM.get(adr, code);
+          MyCallbackSendIR(code,len);
         }
-      
-      excludePins = new int[S];
-      //memcpy(
+
 
     }
 
-    template <unsigned S>
-    void InitAllPinsIn(int (&excludeP)[S]) {
-      for (int i = 0; i < 24; i++) {
-        bool isExclude = false;
-        for (int e = 0; e < S; e++)
-          isExclude = isExclude || (excludeP[e] == i);
-        if (isExclude)continue;
-        pinMode(i, INPUT);
-        digitalWrite(i, HIGH);
-      }
-    }
-
-    template <unsigned S>
-    int *GetAllButtons(int (&excludeP)[S]) {
-      for (int i = 0; i < 24; i++) {
-        bool isExclude = false;
-        for (int e = 0; e < S); e++)
-        isExclude = isExclude || (excludeP[e] == i);
-        if (isExclude)continue;
-        allButtons[i] = digitalRead(i);
-      }
-    return allButtons;
-  }
-
-
-  void melody1() {
+    void melody1() {
       buzz( 2000, 500);
       buzz( 1000, 500);
       buzz( 1500, 500);
@@ -115,8 +103,11 @@ class MyMenu {
 
     }
 
-    bool IsMyEEPROMEmpty() {
-      return (myFat.code1 == 0 || myFat.code2 == 0 || myFat.code3 == 0 || myFat.code4 == 0 || myFat.code5 == 0 || myFat.endof == 0);
+
+    bool IsMyEEPROMEmpty(int S) {
+      for (int i = 0; i < S; i++)if (myFat[i] != 0)return false;
+      return true;
+      //return (myFat.code1 == 0 || myFat.code2 == 0 || myFat.code3 == 0 || myFat.code4 == 0 || myFat.code5 == 0 || myFat.endof == 0);
     }
 
 

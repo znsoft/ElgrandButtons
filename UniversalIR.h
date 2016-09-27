@@ -1,5 +1,8 @@
 
 #include <EEPROM.h>
+#include <IRremote.h>
+#include <HashMap.h>
+IRsend irsend;
 
 // bad
 #define ARRAY_SIZE(array) (sizeof((array))/sizeof((array[0])))
@@ -23,6 +26,9 @@ class MyMenu {
     int speakerpin;
     MyMode myMode;
     int myFat[];
+    int configButtonPin;
+    int learnCount, nowLearnPin;
+    int buttonsCount;
 
     //Buzzer
     void buzz( long frequency, long length) {
@@ -48,47 +54,67 @@ class MyMenu {
       }
     }
 
-    template <unsigned S>
-    int GetAllButtons(int (&P)[S]) {
-      int ret = 0, bit1 = 1;
-      for (int i = 0; i < S; i++) {
-        ret = ret | (bit1 & !digitalRead(P[i]));
-        bit1 = bit1 << 1;
-      }
-      return ret;
-    }
 
   public:
 
     //Constructor
     template <unsigned S>
-    MyMenu(int speaker, int (&P)[S]) {
+    MyMenu(int configPin, int speaker, int (&buttonsPins)[S]) {
       speakerpin = speaker;
-      myFat = new int[S];
-      InitAllPinsIn(P);
+      buttonsCount = S ;
+      usePins = buttonsPins;
+      configButtonPin = configPin;
       myMode = Play;
+      myFat = new int[S];
+      InitAllPinsIn(buttonsPins);
       ReadMyEEPROM();
-      if (IsMyEEPROMEmpty(S))
-        myMode = Config;
-      usePins = P;
+      //if (IsMyEEPROMEmpty(S))        myMode = Config;
+      pinMode(configButtonPin, INPUT);
+      digitalWrite(configButtonPin, HIGH);
+      melody1();
     }
 
 
-    ;
+    void ProcessSendButtons() {
+      //usePins
+      int S = ARRAY_SIZE(usePins);
 
-    template <unsigned S>
-    void ProcessPlayButtons(int (&P)[S], void (*MyCallbackSendIR)(unsigned int *sendcode,unsigned int len)) {
-      for (int i = 0; i < S; i++)
-        if (!digitalRead(P[i])) {
-          unsigned int adr = i == 0 ? sizeof(myFat) : myFat[i - 1];
-          unsigned int len = myFat[i] - adr;
+      //int S = ARRAY_SIZE(myFat);
+      for (int i = 0; i < S; i++) {
+        int buttonPin = usePins[i];
+        if (!digitalRead(buttonPin)) {
+          unsigned int adr = myFat[i];
+          unsigned int len = myFat[i + 1] - adr;
           int *code = new unsigned int[len];
           EEPROM.get(adr, code);
-          MyCallbackSendIR(code,len);
+          irsend.sendRaw(code, len, 38);
         }
-
-
+      }
+      if (!digitalRead(configButtonPin)) {
+        myMode = Config;
+        learnCount = 0, nowLearnPin = 0;
+        melody2();
+      }
     }
+
+
+    void ProcessButtons() {
+      if (myMode == Config) {
+        LearnButtons();
+      } else {
+        ProcessSendButtons();
+      }
+    }
+
+
+    void  LearnButtons() {
+      int S = ARRAY_SIZE(usePins);
+      for (int i = 0; i < S; i++) {
+        int buttonPin = usePins[i];
+        if (!digitalRead(buttonPin)) nowLearnPin = buttonPin;
+      }
+    }
+
 
     void melody1() {
       buzz( 2000, 500);
@@ -97,19 +123,20 @@ class MyMenu {
       buzz( 3000, 500);
     }
 
+    void melody2() {
+      buzz( 2000, 500);
+      buzz( 1, 500);
+      buzz( 1500, 500);
+      buzz( 3, 500);
+      buzz( 2000, 500);
+    }
+
+
     void ReadMyEEPROM() {
 
       EEPROM.get(0, myFat);
 
     }
-
-
-    bool IsMyEEPROMEmpty(int S) {
-      for (int i = 0; i < S; i++)if (myFat[i] != 0)return false;
-      return true;
-      //return (myFat.code1 == 0 || myFat.code2 == 0 || myFat.code3 == 0 || myFat.code4 == 0 || myFat.code5 == 0 || myFat.endof == 0);
-    }
-
 
 };
 

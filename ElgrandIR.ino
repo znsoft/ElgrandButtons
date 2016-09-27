@@ -24,10 +24,11 @@
 int RECV_PIN = A5;
 int BUTTON_PIN = 9;
 int STATUS_PIN = 13;
-int SPEAKER_PIN = 8;
+int SPEAKER_PIN = 4;
+//irsend = 3
 
 IRrecv irrecv(RECV_PIN);
-IRsend irsend;
+
 
 decode_results results;
 
@@ -84,13 +85,7 @@ void storeCode(decode_results *results) {
 
 }
 
-void sendCode() {
 
-  // Assume 38 KHz
-  irsend.sendRaw(rawCodes, codeLen, 38);
-  Serial.println("Sent raw");
-
-}
 
 int lastButtonState;
 

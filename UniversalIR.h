@@ -6,18 +6,19 @@ IRsend irsend; //irsend = 3 pin on arduino nano
 IRrecv irrecv(RECV_PIN);
 
 decode_results results;
-// bad
-#define ARRAY_SIZE(array) (sizeof((array))/sizeof((array[0])))
-
-// good
-template <unsigned S> inline unsigned arraysize(int (&v)[S]) {
-  return S;
-}
 
 
 enum MyMode {
   Config,
   Play
+};
+
+struct MyFAT {
+  int adr1;byte len1;
+  int adr2;byte len2;
+  int adr3;byte len3;
+  int adr4;byte len4;
+  int adr5;byte len5;
 };
 
 
@@ -40,6 +41,8 @@ class MyMenu {
       int j;
       for (j = 0; j < buttonsCount; j++)
         if (index == usePins[j])break;
+      Serial.println("Store");
+      Serial.println(j);
 
 
       codeLen = results->rawlen - 1;
@@ -58,16 +61,39 @@ class MyMenu {
         }
       }
       rawCodes[j, 0 ] = codeLen;
+      Serial.println(codeLen);
+
     }
 
-
+    //simple filesystem fat write
     void SaveMyEEPROM() {
-      myFat[0] = sizeof(myFat);
-      for (int i = 1; i < buttonsCount; i++)  myFat[i] = myFat[i - 1] + rawCodes[i - 1, 0 ];
-      EEPROM.put(0, myFat);
-      for (int i = 0; i < buttonsCount; i++)
-        for (int j = 0; j < rawCodes[i, 0]; j++)
-          EEPROM.write(myFat[i] + j,  rawCodes[i, j]);
+       nowLearnPin = 0;
+      Serial.println("Save");
+      Serial.println(EEPROM.length());
+      int fatSize = sizeof(myFat[0]) * buttonsCount;
+      myFat[0] = (fatSize << 8) | (rawCodes[0, 0] & 0xff);
+      Serial.println(sizeof(myFat[0]));
+      
+
+      for (int i = 1; i < buttonsCount; i++)  myFat[i] = (((myFat[i - 1] >> 8) + rawCodes[i - 1, 0 ]) << 8) | (rawCodes[i, 0] & 0xff);
+
+//unsigned int tmpf[buttonsCount];// = new unsigned int[buttonsCount];
+// for (int i = 0; i < buttonsCount; i++)tmpf[i] = myFat[i];
+// http://forum.arduino.cc/index.php/topic,41497.0.html#3     
+      EEPROM.put(0, myFat);// first write file adress table
+for (int i = 0; i < buttonsCount; i++)Serial.println(myFat[i]);
+      for (int i = 0; i < buttonsCount; i++) {
+        Serial.println(rawCodes[i, 0]);
+        int *tmp = new int[rawCodes[i, 0]];
+        for (int j = 1; j <= rawCodes[i, 0]; j++) {
+          tmp[j - 1] = rawCodes[i, j];
+          Serial.print(rawCodes[i, j]);
+        }
+        Serial.print("   =  ");
+        Serial.println(i);
+        EEPROM.put((myFat[i] >> 8), tmp);//write file
+      }
+     
     }
 
 
@@ -92,9 +118,9 @@ class MyMenu {
       }
     }
 
-    template <unsigned S>
-    void InitAllPinsIn(int (&P)[S]) {
-      for (int i = 0; i < S; i++) {
+
+    void InitAllPinsIn(int *P) {
+      for (int i = 0; i < buttonsCount; i++) {
         pinMode(P[i], INPUT);
         digitalWrite(P[i], HIGH);
       }
@@ -110,12 +136,16 @@ class MyMenu {
 
           countPressedButtons++;
           unsigned int adr = myFat[i] >> 8;
-          unsigned int len = (myFat[i] & 0xff) - adr;
+          unsigned int len = (myFat[i] & 0xff);
           unsigned int *code = new unsigned int[len];
           EEPROM.get(adr, code);
+
+
           irsend.sendRaw(code, len, 38);
-           Serial.print(buttonPin);
-           Serial.println(" send");
+          Serial.println(len);
+          //for (int j = 0; j < len; j++)
+          //Serial.print(code[j]);
+          Serial.println(" send");
         }
       }
       //if (countPressedButtons == buttonsCount)
@@ -125,7 +155,7 @@ class MyMenu {
         Serial.println("Config");
 
         learnCount = 0, nowLearnPin = 0;
-        memset(rawCodes, 0 , sizeof(rawCodes));
+        memset(rawCodes, 0 , sizeof(rawCodes[0, 0])*buttonsCount * RAWBUF);
         melody2();
         irrecv.enableIRIn(); // Start the receiver
       }
@@ -135,7 +165,12 @@ class MyMenu {
     void  LearnButtons() {
       for (int i = 0; i < buttonsCount; i++) {
         int buttonPin = usePins[i];
-        if (!digitalRead(buttonPin)) nowLearnPin = buttonPin;
+        if (!digitalRead(buttonPin)) {
+          nowLearnPin = buttonPin;
+          Serial.print("Learn ");
+          Serial.println(buttonPin);
+
+        }
       }
       if (nowLearnPin == 0 )return;
       if (irrecv.decode(&results)) {
@@ -169,27 +204,31 @@ class MyMenu {
     }
 
   public:
+    void Setup() {
+      Serial.begin(57600);
+      Serial.print("Starting ");
+      Serial.println(buttonsCount);
+      myMode = Play;
+      rawCodes = new int[buttonsCount, RAWBUF];
+      //memset(rawCodes, 0 , sizeof(rawCodes));
+      myFat = new unsigned int[buttonsCount];
+      InitAllPinsIn(usePins);
+      ReadMyEEPROM();
+      pinMode(configButtonPin, INPUT);
+      digitalWrite(configButtonPin, HIGH);
+      melody1();
+      Serial.println("Setup set over");
+
+    }
+
 
     //Constructor
     template <unsigned S>
     MyMenu(int configPin, int speaker, int (&buttonsPins)[S]) {
       speakerpin = speaker;
       buttonsCount = S ;
-      Serial.begin(9600);
-      Serial.println(buttonsCount);
       usePins = buttonsPins;
       configButtonPin = configPin;
-      myMode = Play;
-      rawCodes = new int[S, RAWBUF];
-      memset(rawCodes, 0 , sizeof(rawCodes));
-      myFat = new unsigned int[S];
-      InitAllPinsIn(buttonsPins);
-      ReadMyEEPROM();
-      //if (IsMyEEPROMEmpty(S))        myMode = Config;
-      pinMode(configButtonPin, INPUT);
-      digitalWrite(configButtonPin, HIGH);
-      melody1();
-      // irrecv = new IRrecv(recvPin);
     }
 
 

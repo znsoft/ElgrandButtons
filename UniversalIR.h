@@ -56,12 +56,15 @@ class MyMenu {
         if (i % 2) {
           // Mark
           rawCodes[ j ].d[i-1] = results->rawbuf[i] * USECPERTICK - MARK_EXCESS;
+         Serial.print(" m");Serial.print(rawCodes[ j ].d[i-1]);
         }
         else {
           // Space
           rawCodes[ j ].d[i-1] = results->rawbuf[i] * USECPERTICK + MARK_EXCESS;
+         Serial.print(" s");Serial.print(rawCodes[ j ].d[i-1]);
         }
       }
+       Serial.println(" ");
       rawCodes[j].len = codeLen;
       Serial.println(codeLen);
 
@@ -88,9 +91,9 @@ class MyMenu {
         Serial.println(rawCodes[i].len);
         Serial.println(myFat[i].adr);
 
-        for (int j = 1; j <= rawCodes[i].len; j++) {
+        for (int j = 0; j < rawCodes[i].len; j++) {
           int t = rawCodes[i].d[ j];
-          EEPROM.put(myFat[i].adr + (j - 1) * sizeof(t), t);
+          EEPROM.put(myFat[i].adr + (j) * sizeof(t), t);
           Serial.print(t);
           Serial.print(" , ");
         }

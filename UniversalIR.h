@@ -14,11 +14,12 @@ enum MyMode {
 };
 
 struct MyFAT {
-  int adr1;byte len1;
-  int adr2;byte len2;
-  int adr3;byte len3;
-  int adr4;byte len4;
-  int adr5;byte len5;
+  int adr; byte len;
+};
+
+struct MyRAW {
+  byte len;
+  int d[RAWBUF]; 
 };
 
 
@@ -27,12 +28,13 @@ class MyMenu {
     int *usePins;
     int speakerpin;
     MyMode myMode;
-    unsigned int *myFat;
+    MyFAT *myFat;
     int configButtonPin;
     int learnCount, nowLearnPin;
     int buttonsCount;
     //tempcode
-    int *rawCodes;//[,];//RAWBUF]; // The durations
+    MyRAW *rawCodes;
+    //int **rawCodes;//[RAWBUF]; // The durations
     int codeLen; // The length of the code
 
     // Stores the code for later playback
@@ -53,53 +55,56 @@ class MyMenu {
       for (int i = 1; i <= codeLen; i++) {
         if (i % 2) {
           // Mark
-          rawCodes[j, i ] = results->rawbuf[i] * USECPERTICK - MARK_EXCESS;
+          rawCodes[ j ].d[i-1] = results->rawbuf[i] * USECPERTICK - MARK_EXCESS;
         }
         else {
           // Space
-          rawCodes[j, i ] = results->rawbuf[i] * USECPERTICK + MARK_EXCESS;
+          rawCodes[ j ].d[i-1] = results->rawbuf[i] * USECPERTICK + MARK_EXCESS;
         }
       }
-      rawCodes[j, 0 ] = codeLen;
+      rawCodes[j].len = codeLen;
       Serial.println(codeLen);
 
     }
 
     //simple filesystem fat write
     void SaveMyEEPROM() {
-       nowLearnPin = 0;
+      nowLearnPin = 0;
       Serial.println("Save");
-      Serial.println(EEPROM.length());
       int fatSize = sizeof(myFat[0]) * buttonsCount;
-      myFat[0] = (fatSize << 8) | (rawCodes[0, 0] & 0xff);
-      Serial.println(sizeof(myFat[0]));
-      
+      myFat[0].adr = fatSize;
+      myFat[0].len = rawCodes[0].len;
+      EEPROM.put(0, myFat[0]);
+      for (int i = 1; i < buttonsCount; i++) {
+        myFat[i].adr = myFat[i - 1].adr + rawCodes[i - 1].len;
+        myFat[i].len = rawCodes[i].len;
+        EEPROM.put(i * sizeof(myFat[0]), myFat[i]);
+        Serial.println(myFat[i].adr);
 
-      for (int i = 1; i < buttonsCount; i++)  myFat[i] = (((myFat[i - 1] >> 8) + rawCodes[i - 1, 0 ]) << 8) | (rawCodes[i, 0] & 0xff);
+      }
 
-//unsigned int tmpf[buttonsCount];// = new unsigned int[buttonsCount];
-// for (int i = 0; i < buttonsCount; i++)tmpf[i] = myFat[i];
-// http://forum.arduino.cc/index.php/topic,41497.0.html#3     
-      EEPROM.put(0, myFat);// first write file adress table
-for (int i = 0; i < buttonsCount; i++)Serial.println(myFat[i]);
+
       for (int i = 0; i < buttonsCount; i++) {
-        Serial.println(rawCodes[i, 0]);
-        int *tmp = new int[rawCodes[i, 0]];
-        for (int j = 1; j <= rawCodes[i, 0]; j++) {
-          tmp[j - 1] = rawCodes[i, j];
-          Serial.print(rawCodes[i, j]);
+        Serial.println(rawCodes[i].len);
+        Serial.println(myFat[i].adr);
+
+        for (int j = 1; j <= rawCodes[i].len; j++) {
+          int t = rawCodes[i].d[ j];
+          EEPROM.put(myFat[i].adr + (j - 1) * sizeof(t), t);
+          Serial.print(" , ");
+          Serial.print(t);
         }
         Serial.print("   =  ");
         Serial.println(i);
-        EEPROM.put((myFat[i] >> 8), tmp);//write file
+
       }
-     
+      melody4();
     }
 
 
 
     void ReadMyEEPROM() {
-      EEPROM.get(0, myFat);
+      for (int i = 0; i < buttonsCount; i++)EEPROM.get(i * sizeof(myFat[0]), myFat[i]);
     }
 
     //Buzzer for arduino nano , there is no tone method on it
@@ -133,12 +138,17 @@ for (int i = 0; i < buttonsCount; i++)Serial.println(myFat[i]);
         int buttonPin = usePins[i];
         if (!digitalRead(buttonPin)) {
           Serial.println("press");
+          Serial.println(buttonPin);
 
           countPressedButtons++;
-          unsigned int adr = myFat[i] >> 8;
-          unsigned int len = (myFat[i] & 0xff);
-          unsigned int *code = new unsigned int[len];
-          EEPROM.get(adr, code);
+          unsigned int adr = myFat[i].adr;
+          unsigned int len = myFat[i].len;
+          unsigned int code[len];// = new unsigned int[myFat[i].len];
+          for (int i = 0; i < len; i++)EEPROM.get(adr + i * sizeof(code[i]), code[i]);
+
+          
+          for (int i = 0; i < len; i++){Serial.print(" , ");Serial.print(code[i]);}
+
 
 
           irsend.sendRaw(code, len, 38);
@@ -155,7 +165,7 @@ for (int i = 0; i < buttonsCount; i++)Serial.println(myFat[i]);
         Serial.println("Config");
 
         learnCount = 0, nowLearnPin = 0;
-        memset(rawCodes, 0 , sizeof(rawCodes[0, 0])*buttonsCount * RAWBUF);
+        //memset(rawCodes, 0 , sizeof(rawCodes[0, 0])*buttonsCount * RAWBUF);
         melody2();
         irrecv.enableIRIn(); // Start the receiver
       }
@@ -185,9 +195,6 @@ for (int i = 0; i < buttonsCount; i++)Serial.println(myFat[i]);
 
     void melody1() {
       buzz( 2000, 500);
-      buzz( 1000, 500);
-      buzz( 1500, 500);
-      buzz( 3000, 500);
     }
 
     void melody2() {
@@ -203,15 +210,21 @@ for (int i = 0; i < buttonsCount; i++)Serial.println(myFat[i]);
       buzz( 1500, 300);
     }
 
+    void melody4() {
+      buzz( 2000, 300);
+      buzz( 3500, 300);
+    }
+
   public:
     void Setup() {
       Serial.begin(57600);
       Serial.print("Starting ");
       Serial.println(buttonsCount);
       myMode = Play;
-      rawCodes = new int[buttonsCount, RAWBUF];
-      //memset(rawCodes, 0 , sizeof(rawCodes));
-      myFat = new unsigned int[buttonsCount];
+      rawCodes = new MyRAW[buttonsCount];
+
+      //rawCodes = new int[buttonsCount];
+      myFat = new MyFAT[buttonsCount];
       InitAllPinsIn(usePins);
       ReadMyEEPROM();
       pinMode(configButtonPin, INPUT);

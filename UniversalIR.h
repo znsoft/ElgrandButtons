@@ -76,7 +76,7 @@ class MyMenu {
       myFat[0].len = rawCodes[0].len;
       EEPROM.put(0, myFat[0]);
       for (int i = 1; i < buttonsCount; i++) {
-        myFat[i].adr = myFat[i - 1].adr + rawCodes[i - 1].len;
+        myFat[i].adr = myFat[i - 1].adr + rawCodes[i - 1].len*sizeof(rawCodes[0].d[0]);
         myFat[i].len = rawCodes[i].len;
         EEPROM.put(i * sizeof(myFat[0]), myFat[i]);
         Serial.println(myFat[i].adr);
@@ -91,10 +91,10 @@ class MyMenu {
         for (int j = 1; j <= rawCodes[i].len; j++) {
           int t = rawCodes[i].d[ j];
           EEPROM.put(myFat[i].adr + (j - 1) * sizeof(t), t);
-          Serial.print(" , ");
           Serial.print(t);
+          Serial.print(" , ");
         }
-        Serial.print("   =  ");
+        Serial.println("   =  ");
         Serial.println(i);
 
       }
@@ -104,7 +104,8 @@ class MyMenu {
 
 
     void ReadMyEEPROM() {
-      for (int i = 0; i < buttonsCount; i++)EEPROM.get(i * sizeof(myFat[0]), myFat[i]);
+       Serial.println("ReadMyEEPROM");
+      for (int i = 0; i < buttonsCount; i++){EEPROM.get(i * sizeof(myFat[0]), myFat[i]); Serial.print(myFat[i].len);Serial.print(" ");Serial.println(myFat[i].adr);}
     }
 
     //Buzzer for arduino nano , there is no tone method on it
@@ -143,19 +144,19 @@ class MyMenu {
           countPressedButtons++;
           unsigned int adr = myFat[i].adr;
           unsigned int len = myFat[i].len;
-          unsigned int code[len];// = new unsigned int[myFat[i].len];
+          Serial.println(len);
+          unsigned int code[len];// = new int[len];
           for (int i = 0; i < len; i++)EEPROM.get(adr + i * sizeof(code[i]), code[i]);
 
           
-          for (int i = 0; i < len; i++){Serial.print(" , ");Serial.print(code[i]);}
+          for (int i = 0; i < len; i++){Serial.print(code[i]);Serial.print(" , ");}
 
 
 
           irsend.sendRaw(code, len, 38);
-          Serial.println(len);
           //for (int j = 0; j < len; j++)
           //Serial.print(code[j]);
-          Serial.println(" send");
+          Serial.println(" sended ");
         }
       }
       //if (countPressedButtons == buttonsCount)

@@ -19,7 +19,7 @@ struct MyFAT {
 
 struct MyRAW {
   byte len;
-  int d[RAWBUF]; 
+  int d[RAWBUF];
 };
 
 
@@ -34,17 +34,34 @@ class MyMenu {
     int buttonsCount;
     //tempcode
     MyRAW *rawCodes;
-    //int **rawCodes;//[RAWBUF]; // The durations
     int codeLen; // The length of the code
 
     // Stores the code for later playback
     // Most of this code is just logging
+
+    template<typename T>
+    void MyDebug(T s) {
+#ifndef NODEBUG
+      Serial.print(s);
+#endif
+    }
+
+
+
+    template<typename T>
+    void MyDebugln(T s) {
+#ifndef NODEBUG
+      Serial.println(s);
+#endif
+    }
+
+
     void storeCode(decode_results *results, unsigned int index) {
       int j;
       for (j = 0; j < buttonsCount; j++)
         if (index == usePins[j])break;
-      Serial.println("Store");
-      Serial.println(j);
+      MyDebugln("Store");
+      MyDebugln(j);
 
 
       codeLen = results->rawlen - 1;
@@ -55,50 +72,50 @@ class MyMenu {
       for (int i = 1; i <= codeLen; i++) {
         if (i % 2) {
           // Mark
-          rawCodes[ j ].d[i-1] = results->rawbuf[i] * USECPERTICK - MARK_EXCESS;
-         Serial.print(" m");Serial.print(rawCodes[ j ].d[i-1]);
+          rawCodes[ j ].d[i - 1] = results->rawbuf[i] * USECPERTICK - MARK_EXCESS;
+          MyDebug(" m"); MyDebug(rawCodes[ j ].d[i - 1]);
         }
         else {
           // Space
-          rawCodes[ j ].d[i-1] = results->rawbuf[i] * USECPERTICK + MARK_EXCESS;
-         Serial.print(" s");Serial.print(rawCodes[ j ].d[i-1]);
+          rawCodes[ j ].d[i - 1] = results->rawbuf[i] * USECPERTICK + MARK_EXCESS;
+          MyDebug(" s"); MyDebug(rawCodes[ j ].d[i - 1]);
         }
       }
-       Serial.println(" ");
+      MyDebugln(" ");
       rawCodes[j].len = codeLen;
-      Serial.println(codeLen);
+      MyDebugln(codeLen);
 
     }
 
     //simple filesystem fat write
     void SaveMyEEPROM() {
       nowLearnPin = 0;
-      Serial.println("Save");
+      MyDebugln("Save");
       int fatSize = sizeof(myFat[0]) * buttonsCount;
       myFat[0].adr = fatSize;
       myFat[0].len = rawCodes[0].len;
       EEPROM.put(0, myFat[0]);
       for (int i = 1; i < buttonsCount; i++) {
-        myFat[i].adr = myFat[i - 1].adr + rawCodes[i - 1].len*sizeof(rawCodes[0].d[0]);
+        myFat[i].adr = myFat[i - 1].adr + rawCodes[i - 1].len * sizeof(rawCodes[0].d[0]);
         myFat[i].len = rawCodes[i].len;
         EEPROM.put(i * sizeof(myFat[0]), myFat[i]);
-        Serial.println(myFat[i].adr);
+        MyDebugln(myFat[i].adr);
 
       }
 
 
       for (int i = 0; i < buttonsCount; i++) {
-        Serial.println(rawCodes[i].len);
-        Serial.println(myFat[i].adr);
+        MyDebugln(rawCodes[i].len);
+        MyDebugln(myFat[i].adr);
 
         for (int j = 0; j < rawCodes[i].len; j++) {
           int t = rawCodes[i].d[ j];
           EEPROM.put(myFat[i].adr + (j) * sizeof(t), t);
-          Serial.print(t);
-          Serial.print(" , ");
+          MyDebug(t);
+          MyDebug(" , ");
         }
-        Serial.println("   =  ");
-        Serial.println(i);
+        MyDebugln("   =  ");
+        MyDebugln(i);
 
       }
       melody4();
@@ -107,8 +124,13 @@ class MyMenu {
 
 
     void ReadMyEEPROM() {
-       Serial.println("ReadMyEEPROM");
-      for (int i = 0; i < buttonsCount; i++){EEPROM.get(i * sizeof(myFat[0]), myFat[i]); Serial.print(myFat[i].len);Serial.print(" ");Serial.println(myFat[i].adr);}
+      MyDebugln("ReadMyEEPROM");
+      for (int i = 0; i < buttonsCount; i++) {
+        EEPROM.get(i * sizeof(myFat[0]), myFat[i]);
+        MyDebug(myFat[i].len);
+        MyDebug(" ");
+        MyDebugln(myFat[i].adr);
+      }
     }
 
     //Buzzer for arduino nano , there is no tone method on it
@@ -141,32 +163,33 @@ class MyMenu {
       for (int i = 0; i < buttonsCount; i++) {
         int buttonPin = usePins[i];
         if (!digitalRead(buttonPin)) {
-          Serial.println("press");
-          Serial.println(buttonPin);
+          MyDebugln("press");
+          MyDebugln(buttonPin);
 
           countPressedButtons++;
           unsigned int adr = myFat[i].adr;
           unsigned int len = myFat[i].len;
-          Serial.println(len);
+          MyDebugln(len);
           unsigned int code[len];// = new int[len];
           for (int i = 0; i < len; i++)EEPROM.get(adr + i * sizeof(code[i]), code[i]);
 
-          
-          for (int i = 0; i < len; i++){Serial.print(code[i]);Serial.print(" , ");}
 
-
+          for (int i = 0; i < len; i++) {
+            MyDebug(code[i]);
+            MyDebug(" , ");
+          }
 
           irsend.sendRaw(code, len, 38);
+          melody6(buttonPin);
           //for (int j = 0; j < len; j++)
-          //Serial.print(code[j]);
-          Serial.println(" sended ");
+          //MyDebug(code[j]);
+          MyDebugln(" sended ");
         }
       }
-      //if (countPressedButtons == buttonsCount)
 
-      if (!digitalRead(configButtonPin)) {
+      if (countPressedButtons == (buttonsCount-1) || !digitalRead(configButtonPin)) {
         myMode = Config;
-        Serial.println("Config");
+        MyDebugln("Config");
 
         learnCount = 0, nowLearnPin = 0;
         //memset(rawCodes, 0 , sizeof(rawCodes[0, 0])*buttonsCount * RAWBUF);
@@ -181,8 +204,9 @@ class MyMenu {
         int buttonPin = usePins[i];
         if (!digitalRead(buttonPin)) {
           nowLearnPin = buttonPin;
-          Serial.print("Learn ");
-          Serial.println(buttonPin);
+          melody5();
+          MyDebug("Learn ");
+          MyDebugln(buttonPin);
 
         }
       }
@@ -198,7 +222,9 @@ class MyMenu {
 
 
     void melody1() {
-      buzz( 2000, 500);
+      buzz( 2000, 200);
+      buzz( 1200, 200);
+      buzz( 1500, 100);
     }
 
     void melody2() {
@@ -219,11 +245,24 @@ class MyMenu {
       buzz( 3500, 300);
     }
 
+    void melody5() {
+      buzz( 1200, 100);
+      buzz( 2500, 100);
+    }
+
+    void melody6(int pin) {
+      pin *=13;
+      buzz( 2200+pin, 30);
+      buzz( 700+pin, 30);
+    }
+
   public:
     void Setup() {
+#ifndef NODEBUG
       Serial.begin(57600);
-      Serial.print("Starting ");
-      Serial.println(buttonsCount);
+#endif
+      MyDebug("Starting ");
+      MyDebugln(buttonsCount);
       myMode = Play;
       rawCodes = new MyRAW[buttonsCount];
 
@@ -234,7 +273,7 @@ class MyMenu {
       pinMode(configButtonPin, INPUT);
       digitalWrite(configButtonPin, HIGH);
       melody1();
-      Serial.println("Setup set over");
+      MyDebugln("Setup set over");
 
     }
 

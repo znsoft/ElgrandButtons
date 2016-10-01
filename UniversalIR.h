@@ -2,7 +2,7 @@
 #include <EEPROM.h>
 #include <IRremote.h>
 
-IRsend irsend; //irsend = 3 pin on arduino nano
+IRsend irsend; //irsend = 3 pin on arduino nano, передающий ШИМ пин по умолчанию для ардуино Нано это 3 пин
 IRrecv irrecv(RECV_PIN);
 
 decode_results results;
@@ -55,15 +55,13 @@ class MyMenu {
 #endif
     }
 
-
+    //декодирование сигналов ИК пульта
     void storeCode(decode_results *results, unsigned int index) {
       int j;
       for (j = 0; j < buttonsCount; j++)
         if (index == usePins[j])break;
       MyDebugln("Store");
       MyDebugln(j);
-
-
       codeLen = results->rawlen - 1;
       // To store raw codes:
       // Drop first value (gap)
@@ -87,7 +85,9 @@ class MyMenu {
 
     }
 
-    //simple filesystem fat write
+
+    //#region Файловая система на встроенной флеш памяти
+    //simple filesystem fat write, 
     void SaveMyEEPROM() {
       nowLearnPin = 0;
       MyDebugln("Save");
@@ -100,7 +100,6 @@ class MyMenu {
         myFat[i].len = rawCodes[i].len;
         EEPROM.put(i * sizeof(myFat[0]), myFat[i]);
         MyDebugln(myFat[i].adr);
-
       }
 
 
@@ -122,7 +121,7 @@ class MyMenu {
     }
 
 
-
+//чтение заголовка указателей файловой системы 
     void ReadMyEEPROM() {
       MyDebugln("ReadMyEEPROM");
       for (int i = 0; i < buttonsCount; i++) {
@@ -133,22 +132,7 @@ class MyMenu {
       }
     }
 
-    //Buzzer for arduino nano , there is no tone method on it
-    void buzz( long frequency, long length) {
-      long delayValue = 1000000 / frequency / 2; // calculate the delay value between transitions
-      //// 1 second's worth of microseconds, divided by the frequency, then split in half since
-      //// there are two phases to each cycle
-      long numCycles = frequency * length / 1000; // calculate the number of cycles for proper timing
-      //// multiply frequency, which is really cycles per second, by the number of seconds to
-      //// get the total number of cycles to produce
-      for (long i = 0; i < numCycles; i++) { // for the calculated length of time...
-        digitalWrite(speakerpin, HIGH); // write the buzzer pin high to push out the diaphram
-        delayMicroseconds(delayValue); // wait for the calculated delay value
-        digitalWrite(speakerpin, LOW); // write the buzzer pin low to pull back the diaphram
-        delayMicroseconds(delayValue); // wait again or the calculated delay value
-      }
-    }
-
+//#endregion Файловая системана на встроенной флеш памяти
 
     void InitAllPinsIn(int *P) {
       for (int i = 0; i < buttonsCount; i++) {
@@ -157,7 +141,7 @@ class MyMenu {
       }
     }
 
-
+    //#region Кнопки
     void ProcessSendButtons() {
       int countPressedButtons = 0;
       for (int i = 0; i < buttonsCount; i++) {
@@ -187,7 +171,7 @@ class MyMenu {
         }
       }
 
-      if (countPressedButtons == (buttonsCount-1) || !digitalRead(configButtonPin)) {
+      if (countPressedButtons == (buttonsCount - 1) || !digitalRead(configButtonPin)) {
         myMode = Config;
         MyDebugln("Config");
 
@@ -217,6 +201,24 @@ class MyMenu {
         SaveMyEEPROM();
         irrecv.resume(); // resume receiver
         melody3();
+      }
+    }
+
+    //#endregion Кнопки
+
+    //Buzzer for arduino nano , there is no tone method on it
+    void buzz( long frequency, long length) {
+      long delayValue = 1000000 / frequency / 2; // calculate the delay value between transitions
+      //// 1 second's worth of microseconds, divided by the frequency, then split in half since
+      //// there are two phases to each cycle
+      long numCycles = frequency * length / 1000; // calculate the number of cycles for proper timing
+      //// multiply frequency, which is really cycles per second, by the number of seconds to
+      //// get the total number of cycles to produce
+      for (long i = 0; i < numCycles; i++) { // for the calculated length of time...
+        digitalWrite(speakerpin, HIGH); // write the buzzer pin high to push out the diaphram
+        delayMicroseconds(delayValue); // wait for the calculated delay value
+        digitalWrite(speakerpin, LOW); // write the buzzer pin low to pull back the diaphram
+        delayMicroseconds(delayValue); // wait again or the calculated delay value
       }
     }
 
@@ -251,9 +253,9 @@ class MyMenu {
     }
 
     void melody6(int pin) {
-      pin *=13;
-      buzz( 2200+pin, 30);
-      buzz( 700+pin, 30);
+      pin *= 13;
+      buzz( 2200 + pin, 30);
+      buzz( 700 + pin, 30);
     }
 
   public:
@@ -287,10 +289,6 @@ class MyMenu {
       configButtonPin = configPin;
     }
 
-
-
-
-
     void ProcessButtons() {
       if (myMode == Config) {
         LearnButtons();
@@ -298,10 +296,6 @@ class MyMenu {
         ProcessSendButtons();
       }
     }
-
-
-
-
 };
 
 

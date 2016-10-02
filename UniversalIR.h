@@ -171,7 +171,7 @@ class MyMenu {
         }
       }
 
-      if (countPressedButtons == (buttonsCount - 1) || !digitalRead(configButtonPin)) {
+      if (countPressedButtons == (buttonsCount ) || !digitalRead(configButtonPin)) {
         myMode = Config;
         MyDebugln("Config");
 
